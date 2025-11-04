@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  digistore-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: digistore-api
+    restart: unless-stopped
+    ports:
+      - "5000:80"
+      - "5001:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      # Connection string via environment variable (recommended)
+      - DIGISTORE_CONNECTION_STRING=${DIGISTORE_CONNECTION_STRING}
+    # Or load from .env file (create .env file and add to .gitignore)
+    # env_file:
+    #   - .env
+    volumes:
+      - ./logs:/app/logs
+      - ~/.aspnet/https:/https:ro
+    networks:
+      - digistore-network
+
+networks:
+  digistore-network:
+    driver: bridge

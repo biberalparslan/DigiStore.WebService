@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <location path="." inheritInChildApplications="false">
+    <system.webServer>
+      <handlers>
+        <add name="aspNetCore" path="*" verb="*" modules="AspNetCoreModuleV2" resourceType="Unspecified" />
+      </handlers>
+      <aspNetCore processPath="dotnet" 
+                  arguments=".\DigiStore.WebService.dll" 
+                  stdoutLogEnabled="true" 
+                  stdoutLogFile=".\logs\stdout" 
+                  hostingModel="inprocess">
+        <environmentVariables>
+          <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" />
+          <!-- 
+            CONNECTION STRING CONFIGURATION
+            Replace the value below with your actual connection string
+            IMPORTANT: Add TrustServerCertificate=True to avoid SSL certificate errors
+          -->
+          <environmentVariable name="DIGISTORE_CONNECTION_STRING" 
+                               value="Data Source=193.3.167.224;Initial Catalog=DigiStore_132;Persist Security Info=True;Integrated Security=False;User ID=exampleuser;Password=examplepass;TrustServerCertificate=True" />
+        </environmentVariables>
+      </aspNetCore>
+      <httpProtocol>
+        <customHeaders>
+          <remove name="X-Powered-By" />
+          <add name="X-Content-Type-Options" value="nosniff" />
+          <add name="X-Frame-Options" value="DENY" />
+          <add name="X-XSS-Protection" value="1; mode=block" />
+        </customHeaders>
+      </httpProtocol>
+      <security>
+        <requestFiltering removeServerHeader="true" />
+      </security>
+    </system.webServer>
+  </location>
+</configuration>

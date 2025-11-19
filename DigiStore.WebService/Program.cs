@@ -12,10 +12,6 @@ if (!string.IsNullOrEmpty(keyVaultName))
 {
     var keyVaultUri = new Uri($"https://{keyVaultName}.vault.azure.net/");
     
-    // Use DefaultAzureCredential which supports:
-    // - Managed Identity (production in Azure)
-    // - Azure CLI (local development)
-    // - Visual Studio (local development)
     builder.Configuration.AddAzureKeyVault(
         keyVaultUri,
         new DefaultAzureCredential());
@@ -71,22 +67,12 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-else
-{
-    // Optional: Enable Swagger in production (remove if not needed)
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "DigiStore API V1");
-        c.RoutePrefix = "swagger"; // Access via /swagger
-    });
-}
+// Redirect root to Swagger
+app.MapGet("/", () => Results.Redirect("/swagger"));
+
+// Always enable Swagger
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 

@@ -29,9 +29,6 @@
           <add name="X-XSS-Protection" value="1; mode=block" />
         </customHeaders>
       </httpProtocol>
-      <security>
-        <requestFiltering removeServerHeader="true" />
-      </security>
     </system.webServer>
   </location>
 </configuration>

@@ -1,6 +1,0 @@
-@DigiStore.WebService_HostAddress = http://localhost:5197
-
-GET {{DigiStore.WebService_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

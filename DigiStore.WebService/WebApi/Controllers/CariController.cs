@@ -417,6 +417,16 @@ namespace DigiStore.WebService.WebApi.Controllers
             return Ok(dto);
         }
 
+        /// <summary>
+        /// Tüm üyeleri getirir.
+        /// </summary>
+        [HttpGet("tum-uyeler")]
+        public async Task<ActionResult<IEnumerable<TumUyelerDto>>> GetTumUyeler()
+        {
+            var list = await _service.GetTumUyelerAsync();
+            return Ok(list);
+        }
+
         private static bool IsValidEmail(string email)
         {
             if (string.IsNullOrWhiteSpace(email))

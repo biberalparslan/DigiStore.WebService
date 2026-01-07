@@ -106,10 +106,10 @@ namespace DigiStore.WebService.WebApi.Controllers
         }
 
         /// <summary>
-        /// Belirtilen ana kategoriye ait kategorileri getirir.
+        /// Belirtilen ana kategoriye ait kategorileri getirir. AnaKategoriId belirtilmezse veya 0'dan küçükse tüm kategorileri döner.
         /// </summary>
         [HttpGet("kategoriler")]
-        public async Task<ActionResult<IEnumerable<KategoriDto>>> GetKategoriler([FromQuery] string dil, [FromQuery] int anaKategoriId)
+        public async Task<ActionResult<IEnumerable<KategoriDto>>> GetKategoriler([FromQuery] string dil = "TR", [FromQuery] int anaKategoriId = -1)
         {
             var list = await _kategoriService.GetKategoriAsync(dil, anaKategoriId);
             return Ok(list);

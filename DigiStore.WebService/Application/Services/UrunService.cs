@@ -35,6 +35,11 @@ namespace DigiStore.WebService.Application.Services
             return await _repo.GetUrunByAnaKategoriAsync(anaKategoriId, uyeId);
         }
 
+        public async Task<IEnumerable<TumUrunlerDto>> GetTumUrunlerAsync(int? uyeId)
+        {
+            return await _repo.GetTumUrunlerAsync(uyeId);
+        }
+
         public async Task<IEnumerable<UrunCokSatilanDto>> GetCokSatilanlarAsync(int uyeId)
         {
             return await _repo.GetCokSatilanlarAsync(uyeId);

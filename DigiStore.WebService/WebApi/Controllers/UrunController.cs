@@ -138,6 +138,16 @@ namespace DigiStore.WebService.WebApi.Controllers
         }
 
         /// <summary>
+        /// Tüm ürünleri getirir. UyeId belirtilmezse veya 0'dan küçükse varsayýlan deðer kullanýlýr.
+        /// </summary>
+        [HttpGet("tum-urunler")]
+        public async Task<ActionResult<IEnumerable<TumUrunlerDto>>> GetTumUrunler([FromQuery] int? uyeId)
+        {
+            var list = await _service.GetTumUrunlerAsync(uyeId);
+            return Ok(list);
+        }
+
+        /// <summary>
         /// Çok satýlan ürünleri getirir.
         /// </summary>
         [HttpGet("coksatilanlar/user/{uyeId}")]

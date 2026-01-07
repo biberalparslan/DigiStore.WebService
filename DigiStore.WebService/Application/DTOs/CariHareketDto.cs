@@ -2,6 +2,7 @@
 {
     public class CariHareketDto
     {
+        public int UyeId { get; set; }
         public DateTime? Tarih { get; set; }
         public int Id { get; set; }
         public int? Tip { get; set; }

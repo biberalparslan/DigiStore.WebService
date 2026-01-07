@@ -1,8 +1,9 @@
-using System.Reflection;
+using Azure.Identity;
 using DigiStore.WebService.WebApi.Extensions;
 using DigiStore.WebService.WebApi.Middleware;
+using Microsoft.Extensions.FileProviders;
 using Serilog;
-using Azure.Identity;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -79,6 +80,24 @@ app.UseHttpsRedirection();
 app.UseCors("ProductionPolicy");
 
 app.UseMiddleware<ExceptionMiddleware>();
+
+// ---------------------------------------------
+// STATIC FILES for category + urunler
+// ---------------------------------------------
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(app.Environment.ContentRootPath, "category")),
+    RequestPath = "/category"
+});
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(app.Environment.ContentRootPath, "urunler")),
+    RequestPath = "/urunler"
+});
+// ---------------------------------------------
 
 app.UseAuthorization();
 

@@ -31,5 +31,6 @@ namespace DigiStore.WebService.Application.Services
         public Task UpdateSirketLogoAsync(int uyeId, string path) => _repo.UpdateSirketLogoAsync(uyeId, path);
         public Task<List<CariOdemeDto>> GetOdemelerimAsync(int uyeId, DateTime dateBas, DateTime dateSon) => _repo.GetOdemelerimAsync(uyeId, dateBas, dateSon);
         public Task<CariOdemeDetayDto?> GetOdemeDetayAsync(int paraHareketiId, int uyeId) => _repo.GetOdemeDetayAsync(paraHareketiId, uyeId);
+        public Task<List<TumUyelerDto>> GetTumUyelerAsync() => _repo.GetTumUyelerAsync();
     }
 }

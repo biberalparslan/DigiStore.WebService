@@ -10,6 +10,7 @@ namespace DigiStore.WebService.Application.Interfaces
         Task<IEnumerable<UrunByKategoriDto>> GetUrunByKategoriAsync(int kategoriId, int uyeId);
         Task<IEnumerable<UrunByAramaDto>> GetUrunByAramaAsync(string query, int uyeId);
         Task<IEnumerable<UrunByAnaKategoriDto>> GetUrunByAnaKategoriAsync(int anaKategoriId, int uyeId);
+        Task<IEnumerable<TumUrunlerDto>> GetTumUrunlerAsync(int? uyeId);
 
         Task<IEnumerable<UrunCokSatilanDto>> GetCokSatilanlarAsync(int uyeId);
         Task<IEnumerable<UrunFirsatDto>> GetFirsatUrunleriAsync(int uyeId);

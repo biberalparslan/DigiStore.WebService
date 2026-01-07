@@ -33,7 +33,7 @@ namespace DigiStore.WebService.Infrastructure.Repositories
                     RN = reader.IsDBNull(reader.GetOrdinal("RN")) ? 0 : reader.GetInt64(reader.GetOrdinal("RN")),
                     AnaKategoriId = reader.IsDBNull(reader.GetOrdinal("AnaKategoriId")) ? 0 : reader.GetInt32(reader.GetOrdinal("AnaKategoriId")),
                     AnaKategoriAdi = reader.IsDBNull(reader.GetOrdinal("AnaKategoriAdi")) ? null : reader.GetString(reader.GetOrdinal("AnaKategoriAdi")),
-                    IsHidden = reader.IsDBNull(reader.GetOrdinal("IsHidden")) ? false : (reader.GetString(reader.GetOrdinal("IsHidden")) == "hidden")
+                    IsHidden = reader.IsDBNull(reader.GetOrdinal("IsHidden")) ? 0 : (reader.GetString(reader.GetOrdinal("IsHidden")) == "hidden" ? 1 : 0)
                 };
                 result.Add(dto);
             }

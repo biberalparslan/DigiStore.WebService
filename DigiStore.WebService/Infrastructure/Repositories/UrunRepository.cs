@@ -418,6 +418,65 @@ namespace DigiStore.WebService.Infrastructure.Repositories
             return result;
         }
 
+        // Reader for TumUrunlerDto
+        private async Task<List<TumUrunlerDto>> ReadProductsAll(DbCommand cmd)
+        {
+            const string baseUrl = "https://api.mabelguvenlik.com/urunler/";
+
+            var result = new List<TumUrunlerDto>();
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                int Ord(string name) => reader.GetOrdinal(name);
+                bool Has(string name) { try { return Ord(name) >= 0; } catch { return false; } }
+                int? GetInt32Safe(string col) => Has(col) && !reader.IsDBNull(Ord(col)) ? reader.GetInt32(Ord(col)) : (int?)null;
+                string? GetStringSafe(string col) => Has(col) && !reader.IsDBNull(Ord(col)) ? reader.GetString(Ord(col)) : null;
+                decimal? GetDecimalSafe(string col) => Has(col) && !reader.IsDBNull(Ord(col)) ? reader.GetDecimal(Ord(col)) : (decimal?)null;
+
+                var resim1 = GetStringSafe("OrtancaResimAdi");
+                var resim2 = GetStringSafe("OrtancaResimAdi2");
+
+                // Add base URL if Resim is not null and doesn't already start with http
+                if (!string.IsNullOrEmpty(resim1) && !resim1.StartsWith("http", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    resim1 = $"{baseUrl}{resim1}";
+                }
+                if (!string.IsNullOrEmpty(resim2) && !resim2.StartsWith("http", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    resim2 = $"{baseUrl}{resim2}";
+                }
+
+                var dto = new TumUrunlerDto
+                {
+                    UrunId = Has("UrunId") && !reader.IsDBNull(Ord("UrunId")) ? reader.GetInt32(Ord("UrunId")) : 0,
+                    UrunAdi = GetStringSafe("UrunAdi"),
+                    KdvOrani = GetInt32Safe("KdvOrani"),
+                    MarkaId = GetInt32Safe("MarkaId"),
+                    AnaKategoriId = GetInt32Safe("AnaKategoriId"),
+                    KategoriId = GetInt32Safe("KategoriId"),
+                    MarkaAdi = GetStringSafe("MarkaAdi"),
+                    AnaKategoriAdi = GetStringSafe("AnaKategoriAdi"),
+                    KategoriAdi = GetStringSafe("KategoriAdi"),
+                    OrtancaResimAdi = resim1,
+                    OrtancaResimAdi2 = resim2,
+                    NFiyat = GetDecimalSafe("NFiyat"),
+                    NEskiFiyat = GetDecimalSafe("NEskiFiyat"),
+                    ParaBirimi = GetStringSafe("ParaBirimi"),
+                    StokMiktari = GetInt32Safe("StokMiktari"),
+                    StokMiktariPlus = GetStringSafe("StokMiktariPlus"),
+                    ClassStock = GetStringSafe("ClassStock"),
+                    ClassStokYok = GetStringSafe("ClassStokYok"),
+                    ClassStokSorunuz = GetStringSafe("ClassStokSorunuz"),
+                    IndirimOrani = GetStringSafe("IndirimOrani"),
+                    ClassIndirimOrani = GetStringSafe("ClassIndirimOrani"),
+                    Fiyat = GetDecimalSafe("Fiyat"),
+                    EskiFiyat = GetDecimalSafe("EskiFiyat")
+                };
+                result.Add(dto);
+            }
+            return result;
+        }
+
         public async Task<List<UrunByMarkaDto>> GetUrunByMarkaAsync(int markaId, int uyeId)
         {
             using var conn = _db.Database.GetDbConnection();
@@ -694,6 +753,82 @@ namespace DigiStore.WebService.Infrastructure.Repositories
             }
 
             return (detay, resimler, ozellikler);
+        }
+
+        public async Task<List<TumUrunlerDto>> GetTumUrunlerAsync(int? uyeId)
+        {
+            // If UyeId is null or less than 0, use default value 131397
+            int effectiveUyeId = (uyeId.HasValue && uyeId.Value >= 0) ? uyeId.Value : 131397;
+            
+            using var conn = _db.Database.GetDbConnection();
+            await conn.OpenAsync();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                select UrunId, OrtancaResimAdi, Nr
+                into #resim from 
+                (
+                    Select 
+                        Isnull(OrtancaResimAdi,'ortanca-'+KucukResimAdi) OrtancaResimAdi,
+                        UrunId,
+                        ROW_NUMBER() OVER(partition by UrunId Order by UrunResimId ) Nr from UrunResim where Isnull(Profilmi,0)=1
+                )t where Nr in (1,2)
+
+                select
+                    u.UrunId,
+                    u.UrunAdi,
+                    u.KdvOrani,
+                    u.MarkaId,
+                    -1 AnaKategoriId,
+                    u.KategoriId,
+                    m.Name MarkaAdi,
+                    ak.AnaKategoriAdi,
+                    k.KategoriAdi,
+                    Isnull(re.OrtancaResimAdi,'ortanca_resimsiz.png') OrtancaResimAdi,
+                    Isnull(rs.OrtancaResimAdi,re.OrtancaResimAdi) OrtancaResimAdi2,
+                    f.NFiyat,
+                    f.NEskiFiyat,
+                    cr.Symbol ParaBirimi,
+                    u.StokMiktari,
+                    u.StokMiktariPlus,
+                    case when Isnull(u.StokMiktari,0)<5 then 'stock_off' else 'stock_plus' end ClassStock,
+                    case when Isnull(u.StokMiktari,0)>0 then '' else 'hidden' end ClassStokYok,
+                    case when Isnull(u.StokMiktari,0)>0 then 'hidden' else '' end ClassStokSorunuz
+                into #urunler
+                from V_B2B_Urun u
+                inner join Currency cr on cr.CurrencyId = u.CurrencyId
+                left join V_CariUrunFiyat f on f.UrunId = u.UrunId and f.UyeId = @UyeId
+                left join #resim re on u.UrunId=re.UrunId and re.Nr=1
+                left join #resim rs on u.UrunId=rs.UrunId and rs.Nr=2
+                left join Marka m on m.MarkaId=u.MarkaId
+                left join AnaKategori ak on ak.AnaKategoriId=u.AnaKategoriId
+                left join Kategori k on k.KategoriId=u.KategoriId
+
+                update #urunler set Neskifiyat = null where Neskifiyat = 0
+
+                declare @KDVDahil bit
+                declare @B2BKDVDahil bit
+
+                select @KDVDahil = Isnull(KdvDahil,0),@B2BKDVDahil=Isnull(B2BKDVDahil,0) from Ayar
+
+                select
+                    *,
+                    convert(varchar,'%'+convert(varchar,convert(int,(NEskiFiyat-NFiyat)/NEskiFiyat*100))) IndirimOrani,
+                    case when convert(int,(NEskiFiyat-NFiyat)/NEskiFiyat*100) > 0 then '' else 'hidden' end ClassIndirimOrani,
+                    convert(decimal(18,2),
+                        NFiyat / 
+                            case when @KDVDahil = 1 and @B2BKDVDahil = 0 then (1+(KdvOrani/100.0)) else 1 end
+                            )
+                        Fiyat,
+                    convert(decimal(18,2),
+                        NEskiFiyat /
+                            case when @KDVDahil = 1 and @B2BKDVDahil = 0 then (1+(KdvOrani/100.0)) else 1 end
+                            )
+                        EskiFiyat
+                from #urunler
+                order by KategoriId asc";
+            cmd.CommandType = CommandType.Text;
+            cmd.Parameters.Add(new SqlParameter("@UyeId", SqlDbType.Int) { Value = effectiveUyeId });
+            return await ReadProductsAll(cmd);
         }
     }
 }

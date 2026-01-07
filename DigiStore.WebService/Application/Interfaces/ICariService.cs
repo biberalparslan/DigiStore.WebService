@@ -25,5 +25,6 @@ namespace DigiStore.WebService.Application.Interfaces
         Task UpdateSirketLogoAsync(int uyeId, string path);
         Task<List<CariOdemeDto>> GetOdemelerimAsync(int uyeId, DateTime dateBas, DateTime dateSon);
         Task<CariOdemeDetayDto?> GetOdemeDetayAsync(int paraHareketiId, int uyeId);
+        Task<List<TumUyelerDto>> GetTumUyelerAsync();
     }
 }

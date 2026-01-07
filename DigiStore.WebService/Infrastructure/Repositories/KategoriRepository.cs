@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Threading.Tasks;
@@ -19,23 +20,55 @@ namespace DigiStore.WebService.Infrastructure.Repositories
 
         public async Task<List<KategoriDto>> GetKategoriAsync(string dil, int anaKategoriId)
         {
+            const string baseUrl = "https://api.mabelguvenlik.com";
             var result = new List<KategoriDto>();
             using var conn = _db.Database.GetDbConnection();
             await conn.OpenAsync();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "dbo.B2B_GetKategori";
-            cmd.CommandType = CommandType.StoredProcedure;
-            cmd.Parameters.Add(new SqlParameter("@Dil", SqlDbType.VarChar, 20) { Value = dil });
-            cmd.Parameters.Add(new SqlParameter("@AnaKategoriId", SqlDbType.Int) { Value = anaKategoriId });
+            
+            // If AnaKategoriId is not provided or less than 0, get all categories
+            if (anaKategoriId < 0)
+            {
+                cmd.CommandText = @"
+                    declare @kategoriadet int
+                    select @kategoriadet = count(*) from Kategori where Isnull(SilindiMi,0) = 0
+
+                    select 
+                        ROW_NUMBER() over(order by Isnull(Sira,1000)) RN,
+                        KategoriId, 
+                        AnaKategoriId, 
+                        Resim,
+                        @kategoriadet KategoriAdet,
+                        KategoriAdi
+                    from Kategori 
+                    where Isnull(SilindiMi,0) = 0";
+                cmd.CommandType = CommandType.Text;
+            }
+            else
+            {
+                cmd.CommandText = "dbo.B2B_GetKategori";
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.Parameters.Add(new SqlParameter("@Dil", SqlDbType.VarChar, 20) { Value = dil });
+                cmd.Parameters.Add(new SqlParameter("@AnaKategoriId", SqlDbType.Int) { Value = anaKategoriId });
+            }
+            
             using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
+                var resim = reader.IsDBNull(reader.GetOrdinal("Resim")) ? null : reader.GetString(reader.GetOrdinal("Resim"));
+                
+                // Add base URL if Resim is not null and doesn't already start with http
+                if (!string.IsNullOrEmpty(resim) && !resim.StartsWith("http", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    resim = $"{baseUrl}{resim}";
+                }
+                
                 var dto = new KategoriDto
                 {
                     RN = reader.IsDBNull(reader.GetOrdinal("RN")) ? 0 : reader.GetInt64(reader.GetOrdinal("RN")),
                     KategoriId = reader.GetInt32(reader.GetOrdinal("KategoriId")),
                     AnaKategoriId = reader.GetInt32(reader.GetOrdinal("AnaKategoriId")),
-                    Resim = reader.IsDBNull(reader.GetOrdinal("Resim")) ? null : reader.GetString(reader.GetOrdinal("Resim")),
+                    Resim = resim,
                     KategoriAdet = reader.IsDBNull(reader.GetOrdinal("KategoriAdet")) ? null : reader.GetInt32(reader.GetOrdinal("KategoriAdet")),
                     KategoriAdi = reader.IsDBNull(reader.GetOrdinal("KategoriAdi")) ? null : reader.GetString(reader.GetOrdinal("KategoriAdi"))
                 };
@@ -46,6 +79,7 @@ namespace DigiStore.WebService.Infrastructure.Repositories
 
         public async Task<List<PopulerKategoriDto>> GetPopulerKategoriAsync()
         {
+            const string baseUrl = "https://api.mabelguvenlik.com";
             var result = new List<PopulerKategoriDto>();
             using var conn = _db.Database.GetDbConnection();
             await conn.OpenAsync();
@@ -55,13 +89,21 @@ namespace DigiStore.WebService.Infrastructure.Repositories
             using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
+                var resim = reader.IsDBNull(reader.GetOrdinal("Resim")) ? null : reader.GetString(reader.GetOrdinal("Resim"));
+                
+                // Add base URL if Resim is not null and doesn't already start with http
+                if (!string.IsNullOrEmpty(resim) && !resim.StartsWith("http", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    resim = $"{baseUrl}{resim}";
+                }
+                
                 var dto = new PopulerKategoriDto
                 {
                     RN = reader.IsDBNull(reader.GetOrdinal("RN")) ? null : reader.GetInt64(reader.GetOrdinal("RN")),
                     UrunSayisi = reader.IsDBNull(reader.GetOrdinal("UrunSayisi")) ? null : reader.GetInt32(reader.GetOrdinal("UrunSayisi")),
                     KategoriId = reader.IsDBNull(reader.GetOrdinal("KategoriId")) ? null : reader.GetInt32(reader.GetOrdinal("KategoriId")),
                     KategoriAdi = reader.IsDBNull(reader.GetOrdinal("KategoriAdi")) ? null : reader.GetString(reader.GetOrdinal("KategoriAdi")),
-                    Resim = reader.IsDBNull(reader.GetOrdinal("Resim")) ? null : reader.GetString(reader.GetOrdinal("Resim")),
+                    Resim = resim,
                 };
                 result.Add(dto);
             }

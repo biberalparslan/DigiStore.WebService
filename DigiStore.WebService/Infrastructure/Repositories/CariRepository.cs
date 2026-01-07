@@ -136,15 +136,92 @@ namespace DigiStore.WebService.Infrastructure.Repositories
             using var conn = _db.Database.GetDbConnection();
             await conn.OpenAsync();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "dbo.B2B_GetCariHareketler";
-            cmd.CommandType = CommandType.StoredProcedure;
-            cmd.Parameters.Add(new SqlParameter("@UyeId", SqlDbType.Int) { Value = uyeId });
-            cmd.Parameters.Add(new SqlParameter("@tarih", SqlDbType.Int) { Value = tarih });
+
+            if (uyeId == -1 && tarih == -1)
+            {
+                cmd.CommandText = @"
+                    BEGIN
+                        SET NOCOUNT ON;
+
+                        -- Get current currency rates
+                        SELECT 
+                            Tarih,
+                            CurrencyCode,
+                            CurrencyId,
+                            Buying,
+                            Selling,
+                            Guncelleyen
+                        INTO #curr 
+                        FROM dbo.CurrencyRate_statik 
+                        WHERE Tarih = CONVERT(DATE, GETDATE());
+
+                        -- Build hareket table for all UyeIds and all dates
+                        SELECT 
+                            b.Tarih,
+                            b.Id,
+                            b.Tip,
+                            b.HareketTipi,
+                            b.FaturaTipi,
+                            b.FaturaNo,
+                            b.UyeId,
+                            b.KullaniciId,
+                            b.Tutar,
+                            b.CurrencyId,
+                            ISNULL(b.DovizKuru, 1) AS Kur,
+                            b.Tutar * ISNULL(b.DovizKuru, 1) AS TutarTL,
+                            b.Tutar * ISNULL(c.Buying, 1) AS TutarTLGunluk,
+                            b.Aciklama,
+                            b.URL,
+                            ROW_NUMBER() OVER(PARTITION BY b.UyeId ORDER BY b.Tarih, b.Id) AS RN
+                        INTO #hareket
+                        FROM dbo.V_YP_Bakiye b
+                        LEFT JOIN #curr c ON c.CurrencyId = b.CurrencyId;
+
+                        -- Return final result
+                        SELECT 
+                            h.UyeId,
+                            h.Tarih,
+                            h.Id,
+                            h.Tip,
+                            h.FaturaNo,
+                            c.Symbol AS ParaBirimi,
+                            h.URL,
+                            CONVERT(VARCHAR, h.Tip) + CONVERT(VARCHAR, h.Id) AS SeriNo,
+                            CASE h.Tip 
+                                WHEN 1 THEN 'Ödeme' 
+                                WHEN 3 THEN 'Sipariþ' 
+                            END AS HareketTipi,
+                            CASE WHEN ISNULL(h.FaturaNo, '') = '' THEN 'hidden' ELSE '' END AS ClassPdfIcon, 
+                            CASE WHEN h.Tip = 3 THEN 'seri' ELSE 'not' END AS ClassModal,
+                            CASE 
+                                WHEN h.Tutar < 0 THEN -1 * CONVERT(DECIMAL(18,2), h.Tutar) 
+                                ELSE CONVERT(DECIMAL(18,2), h.Tutar) 
+                            END AS Tutar
+                        FROM #hareket h 
+                        LEFT JOIN dbo.Currency c ON c.CurrencyId = h.CurrencyId
+                        WHERE h.Tip IN (1, 3)
+                        ORDER BY h.UyeId, h.Tarih DESC;
+
+                        -- Cleanup
+                        DROP TABLE #curr;
+                        DROP TABLE #hareket;
+                    END";
+                cmd.CommandType = CommandType.Text;
+            }
+            else 
+            {
+                cmd.CommandText = "dbo.B2B_GetCariHareketler";
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.Parameters.Add(new SqlParameter("@UyeId", SqlDbType.Int) { Value = uyeId });
+                cmd.Parameters.Add(new SqlParameter("@tarih", SqlDbType.Int) { Value = tarih });
+            }
+
             using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
                 list.Add(new CariHareketDto
                 {
+                    UyeId = uyeId > 0 ? uyeId : reader.GetInt32(reader.GetOrdinal("UyeId")),
                     Tarih = reader.IsDBNull(reader.GetOrdinal("Tarih")) ? null : reader.GetDateTime(reader.GetOrdinal("Tarih")),
                     Id = reader.GetInt32(reader.GetOrdinal("Id")),
                     Tip = reader.IsDBNull(reader.GetOrdinal("Tip")) ? null : reader.GetInt32(reader.GetOrdinal("Tip")),
@@ -634,6 +711,81 @@ namespace DigiStore.WebService.Infrastructure.Repositories
                 };
             }
             return null;
+        }
+        public async Task<List<TumUyelerDto>> GetTumUyelerAsync()
+        {
+            var list = new List<TumUyelerDto>();
+            using var conn = _db.Database.GetDbConnection();
+            await conn.OpenAsync();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT 
+	                 U.[UyeId]
+	                ,U.[Ad]
+	                ,U.[Soyad]
+	                ,U.[Unvan]
+	                ,U.[VergiDairesi]
+	                ,U.[VergiNo]
+	                ,Isnull(A.SahisAdres, 'Adres bilgisine ulaþýlamadý. Lütfen bizimle iletiþime geçin.') Adres
+	                ,U.[Eposta]
+	                ,U.[Parola]
+	                ,U.[DogrulandiMi]
+	                ,U.[TumHaberler]
+	                ,U.[KayitTarihi]
+	                ,U.[ToptanMusterimi]
+	                ,U.[SilindiMi]
+	                ,U.[PasifMi]
+	                ,U.[Telefon]
+	                ,U.[Name]
+	                ,C.[Abbr] ParaBirimi
+	                ,U.[Aciklama]
+	                ,U.[eFatura]
+	                ,U.[CepTelefon]
+	                ,U.[Telefon2]
+	                ,U.[Limit]
+	                ,U.[SirketLogoPath]
+                FROM [DigiStore_132].[dbo].[Uye] U
+                INNER JOIN V_Uye VU ON VU.UyeId = U.UyeId
+                INNER JOIN Currency C ON C.CurrencyId = U.CurrencyId
+                LEFT JOIN V_B2B_Adres A ON A.UyeId = U.UyeId
+                WHERE U.UyeId > 20 AND A.FaturaAdresiMi = 1";
+            cmd.CommandType = CommandType.Text;
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                int Ord(string name) => reader.GetOrdinal(name);
+                bool Has(string name) { try { return Ord(name) >= 0; } catch { return false; } }
+
+                list.Add(new TumUyelerDto
+                {
+                    UyeId = reader.GetInt32(Ord("UyeId")),
+                    Ad = Has("Ad") && !reader.IsDBNull(Ord("Ad")) ? reader.GetString(Ord("Ad")) : null,
+                    Soyad = Has("Soyad") && !reader.IsDBNull(Ord("Soyad")) ? reader.GetString(Ord("Soyad")) : null,
+                    Unvan = Has("Unvan") && !reader.IsDBNull(Ord("Unvan")) ? reader.GetString(Ord("Unvan")) : null,
+                    VergiDairesi = Has("VergiDairesi") && !reader.IsDBNull(Ord("VergiDairesi")) ? reader.GetString(Ord("VergiDairesi")) : null,
+                    VergiNo = Has("VergiNo") && !reader.IsDBNull(Ord("VergiNo")) ? reader.GetString(Ord("VergiNo")) : null,
+                    Adres = Has("Adres") && !reader.IsDBNull(Ord("Adres")) ? reader.GetString(Ord("Adres")) : null,
+                    Eposta = Has("Eposta") && !reader.IsDBNull(Ord("Eposta")) ? reader.GetString(Ord("Eposta")) : null,
+                    Parola = Has("Parola") && !reader.IsDBNull(Ord("Parola")) ? reader.GetString(Ord("Parola")) : null,
+                    DogrulandiMi = Has("DogrulandiMi") && !reader.IsDBNull(Ord("DogrulandiMi")) ? reader.GetBoolean(Ord("DogrulandiMi")) : (bool?)null,
+                    TumHaberler = Has("TumHaberler") && !reader.IsDBNull(Ord("TumHaberler")) ? reader.GetBoolean(Ord("TumHaberler")) : (bool?)null,
+                    KayitTarihi = Has("KayitTarihi") && !reader.IsDBNull(Ord("KayitTarihi")) ? reader.GetDateTime(Ord("KayitTarihi")) : (DateTime?)null,
+                    ToptanMusterimi = Has("ToptanMusterimi") && !reader.IsDBNull(Ord("ToptanMusterimi")) ? reader.GetBoolean(Ord("ToptanMusterimi")) : (bool?)null,
+                    SilindiMi = Has("SilindiMi") && !reader.IsDBNull(Ord("SilindiMi")) ? reader.GetBoolean(Ord("SilindiMi")) : (bool?)null,
+                    PasifMi = Has("PasifMi") && !reader.IsDBNull(Ord("PasifMi")) ? reader.GetBoolean(Ord("PasifMi")) : (bool?)null,
+                    Telefon = Has("Telefon") && !reader.IsDBNull(Ord("Telefon")) ? reader.GetString(Ord("Telefon")) : null,
+                    Name = Has("Name") && !reader.IsDBNull(Ord("Name")) ? reader.GetString(Ord("Name")) : null,
+                    ParaBirimi = Has("ParaBirimi") && !reader.IsDBNull(Ord("ParaBirimi")) ? reader.GetString(Ord("ParaBirimi")) : null,
+                    Aciklama = Has("Aciklama") && !reader.IsDBNull(Ord("Aciklama")) ? reader.GetString(Ord("Aciklama")) : null,
+                    eFatura = Has("eFatura") && !reader.IsDBNull(Ord("eFatura")) ? reader.GetBoolean(Ord("eFatura")) : (bool?)null,
+                    CepTelefon = Has("CepTelefon") && !reader.IsDBNull(Ord("CepTelefon")) ? reader.GetString(Ord("CepTelefon")) : null,
+                    Telefon2 = Has("Telefon2") && !reader.IsDBNull(Ord("Telefon2")) ? reader.GetString(Ord("Telefon2")) : null,
+                    Limit = Has("Limit") && !reader.IsDBNull(Ord("Limit")) ? reader.GetDecimal(Ord("Limit")) : (decimal?)null,
+                    SirketLogoPath = Has("SirketLogoPath") && !reader.IsDBNull(Ord("SirketLogoPath")) ? reader.GetString(Ord("SirketLogoPath")) : null
+                });
+            }
+            return list;
         }
     }
 }

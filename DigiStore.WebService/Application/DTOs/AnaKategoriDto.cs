@@ -5,6 +5,6 @@
         public long RN { get; set; }
         public int AnaKategoriId { get; set; }
         public string? AnaKategoriAdi { get; set; }
-        public bool IsHidden { get; set; }
+        public int IsHidden { get; set; }
     }
 }

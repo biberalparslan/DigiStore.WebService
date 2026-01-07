@@ -91,6 +91,7 @@ namespace DigiStore.WebService.WebApi.Extensions
             services.AddScoped<ICariService, Application.Services.CariService>();
             services.AddScoped<ITanimlamalarService, Application.Services.TanimlamalarService>();
             services.AddScoped<IOdemeService, Application.Services.OdemeService>();
+            services.AddScoped<IAuthService, Application.Services.AuthService>();
 
             services.AddFluentValidationAutoValidation();
             services.AddValidatorsFromAssemblyContaining<DigiStore.WebService.Application.DTOs.AdresDto>();

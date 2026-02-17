@@ -10,6 +10,7 @@ namespace DigiStore.WebService.Application.Interfaces
         Task<CariBilgilerDto?> GetCariBilgilerimAsync(int uyeId);
         Task<List<CariGenelDurumDto>> GetCariGenelDurumAsync(int uyeId, int yil, int currencyId);
         Task<List<CariGenelDurumDetayDto>> GetCariGenelDurumDetayAsync(int uyeId, DateTime dateBas, DateTime dateSon, int currencyId);
+        Task<List<CariGenelDurumDetayDto>> GetCariGenelDurumDetayAllAsync(DateTime? dateBas = null, DateTime? dateSon = null, int? currencyId = null);
         Task<List<CariHareketDetayDto>> GetCariHareketByIdAsync(int hareketId, int uyeId);
         Task<List<CariHareketDto>> GetCariHareketlerAsync(int uyeId, int tarih);
         Task<List<CariParaBirimiDto>> GetCariParaBirimleriAsync(int uyeId);

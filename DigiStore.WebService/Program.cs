@@ -7,6 +7,13 @@ using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add web.config as a configuration source
+var webConfigPath = Path.Combine(builder.Environment.ContentRootPath, "web.config");
+if (File.Exists(webConfigPath))
+{
+    builder.Configuration.AddXmlFile("web.config", optional: true, reloadOnChange: true);
+}
+
 // Configure Azure Key Vault (if available)
 var keyVaultName = builder.Configuration["KeyVaultName"];
 if (!string.IsNullOrEmpty(keyVaultName))
@@ -78,6 +85,8 @@ app.UseSwaggerUI();
 app.UseHttpsRedirection();
 
 app.UseCors("ProductionPolicy");
+
+app.UseMiddleware<IpWhitelistMiddleware>();
 
 app.UseMiddleware<ExceptionMiddleware>();
 

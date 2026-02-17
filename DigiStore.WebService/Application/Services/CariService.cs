@@ -15,6 +15,7 @@ namespace DigiStore.WebService.Application.Services
         public Task<CariBilgilerDto?> GetCariBilgilerimAsync(int uyeId) => _repo.GetCariBilgilerimAsync(uyeId);
         public Task<List<CariGenelDurumDto>> GetCariGenelDurumAsync(int uyeId, int yil, int currencyId) => _repo.GetCariGenelDurumAsync(uyeId, yil, currencyId);
         public Task<List<CariGenelDurumDetayDto>> GetCariGenelDurumDetayAsync(int uyeId, DateTime dateBas, DateTime dateSon, int currencyId) => _repo.GetCariGenelDurumDetayAsync(uyeId, dateBas, dateSon, currencyId);
+        public Task<List<CariGenelDurumDetayDto>> GetCariGenelDurumDetayAllAsync(DateTime? dateBas = null, DateTime? dateSon = null, int? currencyId = null) => _repo.GetCariGenelDurumDetayAllAsync(dateBas, dateSon, currencyId);
         public Task<List<CariHareketDetayDto>> GetCariHareketByIdAsync(int hareketId, int uyeId) => _repo.GetCariHareketByIdAsync(hareketId, uyeId);
         public Task<List<CariHareketDto>> GetCariHareketlerAsync(int uyeId, int tarih) => _repo.GetCariHareketlerAsync(uyeId, tarih);
         public Task<List<CariParaBirimiDto>> GetCariParaBirimleriAsync(int uyeId) => _repo.GetCariParaBirimleriAsync(uyeId);

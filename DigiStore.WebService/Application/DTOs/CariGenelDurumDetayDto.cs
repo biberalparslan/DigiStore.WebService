@@ -2,6 +2,7 @@
 {
     public class CariGenelDurumDetayDto
     {
+        public int UyeId { get; set; }
         public DateTime? Tarih { get; set; }
         public int? SeriNo { get; set; }
         public string? HareketTipi { get; set; }

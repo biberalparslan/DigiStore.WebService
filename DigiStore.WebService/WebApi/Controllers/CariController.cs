@@ -52,6 +52,16 @@ namespace DigiStore.WebService.WebApi.Controllers
         }
 
         /// <summary>
+        /// /// Tüm üyeler için belirli tarih aralýðý ve para birimi bazýnda cari genel durum detayýný getirir. Varsayýlan: dateBas=1900-01-01, dateSon=bugün, currencyId=null (tümü TL'ye çevrilir)
+        /// </summary>
+        [HttpGet("genel-durum-detay-all")]
+        public async Task<ActionResult<IEnumerable<CariGenelDurumDetayDto>>> GetCariGenelDurumDetayAll([FromQuery] DateTime? dateBas = null, [FromQuery] DateTime? dateSon = null, [FromQuery] int? currencyId = null)
+        {
+            var list = await _service.GetCariGenelDurumDetayAllAsync(dateBas, dateSon, currencyId);
+            return Ok(list);
+        }
+
+        /// <summary>
         /// Cari hareket satýr detaylarýný getirir.
         /// </summary>
         [HttpGet("hareket/{hareketId}/user/{uyeId}")]

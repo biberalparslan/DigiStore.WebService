@@ -82,6 +82,105 @@ namespace DigiStore.WebService.Infrastructure.Repositories
             {
                 list.Add(new CariGenelDurumDetayDto
                 {
+                    UyeId = uyeId,
+                    Tarih = reader.IsDBNull(reader.GetOrdinal("Tarih")) ? null : reader.GetDateTime(reader.GetOrdinal("Tarih")),
+                    SeriNo = reader.IsDBNull(reader.GetOrdinal("SeriNo")) ? null : reader.GetInt32(reader.GetOrdinal("SeriNo")),
+                    HareketTipi = reader.IsDBNull(reader.GetOrdinal("HareketTipi")) ? null : reader.GetString(reader.GetOrdinal("HareketTipi")),
+                    Borc = reader.IsDBNull(reader.GetOrdinal("Borc")) ? null : reader.GetDecimal(reader.GetOrdinal("Borc")),
+                    Alacak = reader.IsDBNull(reader.GetOrdinal("Alacak")) ? null : reader.GetDecimal(reader.GetOrdinal("Alacak")),
+                    Bakiye = reader.IsDBNull(reader.GetOrdinal("Bakiye")) ? null : reader.GetDecimal(reader.GetOrdinal("Bakiye"))
+                });
+            }
+            return list;
+        }
+
+        public async Task<List<CariGenelDurumDetayDto>> GetCariGenelDurumDetayAllAsync(DateTime? dateBas = null, DateTime? dateSon = null, int? currencyId = null)
+        {
+            var list = new List<CariGenelDurumDetayDto>();
+            using var conn = _db.Database.GetDbConnection();
+            await conn.OpenAsync();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT * INTO #curr FROM currencyrate_statik WHERE Tarih = (SELECT MAX(tarih) FROM currencyrate_statik)
+
+                SELECT 
+	                b.UyeId,
+	                DATEADD(DAY, -1, CONVERT(DATE, @DateBas)) Tarih,
+	                0 SeriNo,
+	                'DEVÝR' HareketTipi,
+	                b.Tip,
+	                CASE 
+		                WHEN @CurrencyId IS NULL THEN 
+			                CASE WHEN b.CurrencyId = 4 THEN b.Tutar  -- TRY doesn't need conversion
+			                ELSE b.Tutar * ISNULL(c.Buying, 1)  -- Convert to TRY
+			                END
+		                ELSE b.Tutar
+	                END AS Tutar
+                INTO #hareket
+                FROM V_YP_Bakiye b
+                LEFT JOIN #curr c ON b.CurrencyId = c.CurrencyId AND @CurrencyId IS NULL
+                WHERE (@CurrencyId IS NULL OR b.CurrencyId = @CurrencyId)
+                AND CONVERT(DATE, b.tarih) < CONVERT(DATE, @DateBas)
+                AND b.UyeId > 10
+
+                UNION ALL
+
+                SELECT
+	                b.UyeId,
+	                CONVERT(DATE, b.Tarih) Tarih,
+	                CONVERT(VARCHAR, b.Tip) + CONVERT(VARCHAR, b.Id) SeriNo,
+	                CASE b.Tip WHEN 1 THEN 'Ödeme' WHEN 2 THEN 'Tahsilat' WHEN 3 THEN 'Sipariþ' ELSE b.HareketTipi END HareketTipi,
+	                b.Tip,
+	                CASE 
+		                WHEN @CurrencyId IS NULL THEN 
+			                CASE WHEN b.CurrencyId = 1 THEN b.Tutar  -- TRY doesn't need conversion
+			                ELSE b.Tutar * ISNULL(c.Buying, 1)  -- Convert to TRY
+			                END
+		                ELSE b.Tutar
+	                END AS Tutar
+                FROM V_YP_Bakiye b
+                LEFT JOIN #curr c ON b.CurrencyId = c.CurrencyId AND @CurrencyId IS NULL
+                WHERE (@CurrencyId IS NULL OR b.CurrencyId = @CurrencyId)
+                AND CONVERT(DATE, b.tarih) BETWEEN CONVERT(DATE, @DateBas) AND CONVERT(DATE, @DateSon)
+                AND b.UyeId > 10
+
+                ;WITH HareketOzet AS
+                (
+	                SELECT
+		                UyeId,
+		                Tarih,
+		                SeriNo,
+		                HareketTipi,
+		                CONVERT(DECIMAL(18,2), SUM(CASE WHEN Tip IN (2, 3) THEN Tutar ELSE 0 END)) Borc,  
+		                CONVERT(DECIMAL(18,2), SUM(CASE WHEN Tip IN (1, 4) THEN Tutar ELSE 0 END)) * -1 Alacak,  
+		                CONVERT(DECIMAL(18,2), SUM(Tutar)) NetTutar
+	                FROM #hareket
+	                GROUP BY UyeId, Tarih, SeriNo, HareketTipi
+                )
+                SELECT
+	                UyeId,
+	                Tarih,
+	                SeriNo,
+	                HareketTipi,
+	                Borc,
+	                Alacak,
+	                SUM(NetTutar) OVER (PARTITION BY UyeId ORDER BY Tarih, SeriNo ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS Bakiye
+                FROM HareketOzet
+                ORDER BY UyeId, Tarih, SeriNo;
+
+                DROP TABLE #hareket;
+                DROP TABLE #curr;
+            ";
+            cmd.CommandType = CommandType.Text;
+            cmd.Parameters.Add(new SqlParameter("@DateBas", SqlDbType.Date) { Value = dateBas ?? new DateTime(1900, 1, 1) });
+            cmd.Parameters.Add(new SqlParameter("@DateSon", SqlDbType.Date) { Value = dateSon ?? DateTime.Today });
+            cmd.Parameters.Add(new SqlParameter("@CurrencyId", SqlDbType.Int) { Value = currencyId.HasValue ? currencyId.Value : DBNull.Value });
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                list.Add(new CariGenelDurumDetayDto
+                {
+                    UyeId = reader.GetInt32(reader.GetOrdinal("UyeId")),
                     Tarih = reader.IsDBNull(reader.GetOrdinal("Tarih")) ? null : reader.GetDateTime(reader.GetOrdinal("Tarih")),
                     SeriNo = reader.IsDBNull(reader.GetOrdinal("SeriNo")) ? null : reader.GetInt32(reader.GetOrdinal("SeriNo")),
                     HareketTipi = reader.IsDBNull(reader.GetOrdinal("HareketTipi")) ? null : reader.GetString(reader.GetOrdinal("HareketTipi")),
